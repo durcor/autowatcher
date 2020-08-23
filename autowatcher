@@ -1,0 +1,37 @@
+#!/bin/sh
+# TODO
+# 	Add support for sites other than youtube
+# 	Move rss/videoID-querying to using youtube's domain instead of invidio.us's proxy
+
+if [ -f "${XDG_CONFIG_HOME-$HOME/.config}/autowatcher" ]; then
+	yt_channel_ids=$(xargs < "${XDG_CONFIG_HOME-$HOME/.config}/autowatcher")
+else
+	yt_channel_ids="$*"
+fi
+
+for yt_channel_id in $yt_channel_ids; do
+	# Matthew Santoro: UCXhSCMRRPyxSoyLSPFxK7VA
+	# Doug DeMuro: UCsqjHFMB_JYTaEnf_vmTNqg
+	yt_video_ids=$(
+		curl --no-progress-meter "https://invidio.us/feed/channel/$yt_channel_id" |
+		awk -F'yt:videoId' '/videoId/{print $2}' |
+		sed 's|>||' | sed 's|</||'
+	)
+	for yt_video_id in $yt_video_ids; do
+		if [ -z "$yt_video_urls" ]; then
+			yt_video_urls="https://youtu.be/$yt_video_id"
+		else
+			yt_video_urls="$yt_video_urls \n https://youtu.be/$yt_video_id"
+		fi
+	done
+done
+
+yt_video_urls=$(echo "$yt_video_urls" | shuf)
+
+for yt_video_url in $yt_video_urls; do
+	if [ "$1" = --debug ]; then
+		echo "$yt_video_urls"
+	else
+		mpv --fullscreen --save-position-on-quit=no "$yt_video_url"
+	fi
+done
